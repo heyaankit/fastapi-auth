@@ -21,24 +21,30 @@ A FastAPI-based OTP authentication system for mobile-first applications.
 
 ## Setup
 
-1. **Create virtual environment:**
+### Clone and Install
+
 ```bash
-python -m venv otp_venv
-source otp_venv/bin/activate
+git clone https://github.com/heyaankit/fastapi-auth.git
+cd fastapi-auth
+pip install -r requirements.txt
 ```
 
-2. **Install dependencies:**
-```bash
-pip install fastapi uvicorn[standard] sqlalchemy python-jose pydantic pydantic-settings
-```
+### Run the server
 
-3. **Run the server:**
 ```bash
 uvicorn main:app --reload
 ```
 
 The API runs on `http://localhost:8000`
 API docs: `http://localhost:8000/docs`
+
+### Reset Database (optional)
+
+If you want a fresh database:
+```bash
+rm data/app.db
+uvicorn main:app --reload
+```
 
 ## API Endpoints
 
