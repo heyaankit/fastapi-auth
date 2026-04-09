@@ -10,21 +10,31 @@ def generate_otp() -> str:
     return "".join([str(secrets.randbelow(10)) for _ in range(settings.OTP_LENGTH)])
 
 
-def create_otp(db: Session, phone: str) -> OTP:
+def create_otp(
+    db: Session, country_code: str, phone: str, purpose: str = "login"
+) -> OTP:
     otp_code = generate_otp()
     expires_at = datetime.utcnow() + timedelta(minutes=settings.OTP_EXPIRE_MINUTES)
 
-    otp = OTP(phone=phone, code=otp_code, expires_at=expires_at)
+    otp = OTP(
+        country_code=country_code,
+        phone=phone,
+        code=otp_code,
+        expires_at=expires_at,
+        purpose=purpose,
+    )
     db.add(otp)
     db.commit()
     db.refresh(otp)
     return otp
 
 
-def verify_otp(db: Session, phone: str, code: str) -> tuple[bool, str]:
+def verify_otp(
+    db: Session, country_code: str, phone: str, code: str
+) -> tuple[bool, str]:
     otp = (
         db.query(OTP)
-        .filter(OTP.phone == phone, OTP.used == False)
+        .filter(OTP.country_code == country_code, OTP.phone == phone, OTP.used == False)
         .order_by(OTP.created_at.desc())
         .first()
     )
@@ -49,11 +59,14 @@ def verify_otp(db: Session, phone: str, code: str) -> tuple[bool, str]:
     return True, "OTP verified"
 
 
-def get_valid_otp(db: Session, phone: str) -> OTP | None:
+def get_valid_otp(db: Session, country_code: str, phone: str) -> OTP | None:
     return (
         db.query(OTP)
         .filter(
-            OTP.phone == phone, OTP.used == False, OTP.expires_at > datetime.utcnow()
+            OTP.country_code == country_code,
+            OTP.phone == phone,
+            OTP.used == False,
+            OTP.expires_at > datetime.utcnow(),
         )
         .first()
     )

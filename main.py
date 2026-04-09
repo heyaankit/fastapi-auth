@@ -9,7 +9,6 @@ from otp_app.models import User, OTP
 from otp_app.schemas import (
     UserResponse,
     OTPRequest,
-    OTPVerifyRequest,
     RegisterRequest,
     LoginRequest,
     TokenResponse,
@@ -69,7 +68,9 @@ def root():
     status_code=status.HTTP_201_CREATED,
 )
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    success, message = otp_service.verify_otp(db, request.phone, request.code)
+    success, message = otp_service.verify_otp(
+        db, request.country_code, request.phone, request.code
+    )
 
     if not success:
         raise HTTPException(status_code=401, detail=message)
@@ -79,7 +80,11 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Phone number already registered")
 
     user = User(
-        phone=request.phone, is_verified=True, name=request.name, email=request.email
+        country_code=request.country_code,
+        phone=request.phone,
+        is_verified=True,
+        name=request.name,
+        email=request.email,
     )
     db.add(user)
     db.commit()
@@ -95,23 +100,21 @@ def request_otp(request: OTPRequest, db: Session = Depends(get_db)):
             status_code=400, detail="User already registered, use login"
         )
 
-    otp_service.create_otp(db, request.phone)
+    otp_service.create_otp(db, request.country_code, request.phone, purpose="register")
     return {"message": "OTP sent successfully"}
 
 
-@app.post("/api/v1/auth/verify-otp", response_model=TokenResponse)
-def verify_otp(request: OTPVerifyRequest, db: Session = Depends(get_db)):
-    success, message = otp_service.verify_otp(db, request.phone, request.code)
-
-    if not success:
-        raise HTTPException(status_code=401, detail=message)
-
+@app.post("/api/v1/auth/request-login-otp")
+def request_login_otp(request: OTPRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.phone == request.phone).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    token = jwt_service.create_access_token(data={"sub": user.id, "phone": user.phone})
-    return {"access_token": token, "token_type": "bearer"}
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="User not verified")
+
+    otp_service.create_otp(db, request.country_code, request.phone, purpose="login")
+    return {"message": "OTP sent successfully"}
 
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse)
@@ -123,12 +126,16 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="User not verified")
 
-    success, message = otp_service.verify_otp(db, request.phone, request.code)
+    success, message = otp_service.verify_otp(
+        db, request.country_code, request.phone, request.code
+    )
 
     if not success:
         raise HTTPException(status_code=401, detail=message)
 
-    token = jwt_service.create_access_token(data={"sub": user.id, "phone": user.phone})
+    token = jwt_service.create_access_token(
+        data={"sub": user.id, "phone": user.phone, "country_code": user.country_code}
+    )
     return {"access_token": token, "token_type": "bearer"}
 
 

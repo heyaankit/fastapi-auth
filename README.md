@@ -6,6 +6,7 @@ A FastAPI-based OTP authentication system for mobile-first applications.
 
 - User registration with phone number
 - OTP generation and verification (6 digits, 5 min expiry)
+- Separate country code and phone number fields
 - Login via phone + OTP (no password)
 - JWT token-based authentication
 - Protected routes
@@ -50,47 +51,62 @@ uvicorn main:app --reload
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/auth/register` | POST | Register with phone number |
-| `/api/v1/auth/request-otp` | POST | Request OTP for phone |
-| `/api/v1/auth/verify-otp` | POST | Verify OTP, returns JWT |
-| `/api/v1/auth/login` | POST | Login with phone + OTP |
+| `/api/v1/auth/request-otp` | POST | Request OTP for registration |
+| `/api/v1/auth/register` | POST | Verify OTP + create user |
+| `/api/v1/auth/request-login-otp` | POST | Request OTP for login |
+| `/api/v1/auth/login` | POST | Verify OTP + return JWT |
 | `/api/v1/users/me` | GET | Get current user (protected) |
 | `/health` | GET | Health check |
 
 ## Usage Example
 
-### 1. Register
-```bash
-curl -X POST http://localhost:8000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"phone": "+1234567890", "name": "John"}'
-```
+### Registration (New User)
 
-### 2. Request OTP
+**1. Request OTP for registration**
 ```bash
 curl -X POST http://localhost:8000/api/v1/auth/request-otp \
   -H "Content-Type: application/json" \
-  -d '{"phone": "+1234567890"}'
+  -d '{"country_code": "+91", "phone": "9876543210"}'
 ```
 
-### 3. Verify OTP (get JWT)
+**2. Get OTP from database**
 ```bash
-curl -X POST http://localhost:8000/api/v1/auth/verify-otp \
-  -H "Content-Type: application/json" \
-  -d '{"phone": "+1234567890", "code": "123456"}'
+sqlite3 "data/app.db" "SELECT code FROM otp WHERE phone='9876543210' ORDER BY created_at DESC LIMIT 1;"
 ```
 
-### 4. Login
+**3. Register**
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"country_code": "+91", "phone": "9876543210", "code": "YOUR_OTP", "name": "John Doe", "email": "john@example.com"}'
+```
+
+### Login (Returning User)
+
+**1. Request Login OTP**
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/request-login-otp \
+  -H "Content-Type: application/json" \
+  -d '{"country_code": "+91", "phone": "9876543210"}'
+```
+
+**2. Get OTP from database**
+```bash
+sqlite3 "data/app.db" "SELECT code FROM otp WHERE phone='9876543210' ORDER BY created_at DESC LIMIT 1;"
+```
+
+**3. Login**
 ```bash
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"phone": "+1234567890", "code": "123456"}'
+  -d '{"country_code": "+91", "phone": "9876543210", "code": "YOUR_OTP"}'
 ```
 
-### 5. Get Current User
+### Get Current User
+
 ```bash
 curl -X GET http://localhost:8000/api/v1/users/me \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ## Project Structure
@@ -100,12 +116,12 @@ curl -X GET http://localhost:8000/api/v1/users/me \
 ├── main.py              # FastAPI app and routes
 ├── otp_app/
 │   ├── config.py        # Settings
-│   ├── database.py     # Database config
-│   ├── models/         # SQLAlchemy models
-│   ├── schemas/        # Pydantic schemas
+│   ├── database.py      # Database config
+│   ├── models/          # SQLAlchemy models
+│   ├── schemas/         # Pydantic schemas
 │   └── services/        # Business logic
 ├── data/                # SQLite database
-└── otp_venv/           # Virtual environment
+└── .venv/               # Virtual environment
 ```
 
 ## Notes
@@ -114,3 +130,4 @@ curl -X GET http://localhost:8000/api/v1/users/me \
 - OTP expires after 5 minutes
 - JWT token expires after 30 minutes
 - SQLite database at `./data/app.db`
+- Country code and phone number are stored as separate fields

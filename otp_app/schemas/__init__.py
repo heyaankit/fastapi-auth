@@ -4,6 +4,7 @@ from datetime import datetime
 
 class UserResponse(BaseModel):
     id: str
+    country_code: str
     phone: str
     name: str | None = None
     email: str | None = None
@@ -16,15 +17,12 @@ class UserResponse(BaseModel):
 
 
 class OTPRequest(BaseModel):
+    country_code: str
     phone: str
-
-
-class OTPVerifyRequest(BaseModel):
-    phone: str
-    code: str
 
 
 class RegisterRequest(BaseModel):
+    country_code: str
     phone: str
     code: str
     name: str | None = None
@@ -32,6 +30,7 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    country_code: str
     phone: str
     code: str
 
